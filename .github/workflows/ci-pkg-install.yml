@@ -34,7 +34,7 @@ jobs:
       max-parallel: 1
       matrix:
         os: [ubuntu-20.04, macOS-11, windows-2022]
-        pkg: ["app", "lite", "pytorch"]
+        pkg: ["app", "lite"]
         python-version: [3.8]  # , 3.9
 
     steps:
@@ -60,8 +60,44 @@ jobs:
 
       - uses: ./.github/actions/pkg-install
 
-  install-meta-src:
+  install-dependent:
     needs: install-standalone
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        os: [ubuntu-20.04, macOS-11, windows-2022]
+        pkg: ["pytorch"]
+        python-version: [3.8]  # , 3.9
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: ci-packages-${{ github.sha }}
+          path: pypi
+      - run: ls -lh pypi/
+
+      - uses: ./.github/actions/pkg-check
+        with:
+          pkg-name: ${{ matrix.pkg }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ci-packages-${{ github.sha }}
+          path: pypi
+
+      - uses: ./.github/actions/pkg-install
+        with:
+          pip-flags: "-U --pre --find-links ../pypi/"
+
+  install-meta-src:
+    needs: install-dependent
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
